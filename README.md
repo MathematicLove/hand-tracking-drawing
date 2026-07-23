@@ -6,8 +6,10 @@ Draw in the air with your hand, then view the drawing as a rotatable 3D object.
   <img src="https://github.com/MathematicLove/hand-tracking-drawing/blob/master/example/EXAMPLE_2.png"
        width="400"
        height="300"
-       alt="Fig.1: Example">
+       alt="Fig.1: Example of drawing">
 </p>
+
+**[DOCKER IMAGE HERE](https://hub.docker.com/r/flugmaschine/hand-tracking-drawing)**
 
 ## Model
 
@@ -17,11 +19,11 @@ those keypoints, so recognition is independent of hand size, distance, or handed
 
 ## Logic
 
-- **One index finger** — draw
-- **Index + middle** — move cursor without drawing
-- **Fist (hold)** — grab the drawing; move the fist to rotate it in 3D
-- **Two fists** — scale (canvas in 2D, object in 3D)
-- **Open palm** — release, back to drawing
+- **One index finger** - draw
+- **Index + middle** - move cursor without drawing
+- **Fist (hold)** - grab the drawing; move the fist to rotate it in 3D
+- **Two fists** - scale (canvas in 2D, object in 3D)
+- **Open palm** - release, back to drawing
 
 Keys: `S` save, `C` clear, `U` undo, `1..6` color, `[` / `]` thickness,
 `SPACE` 2D/3D, `R` reset view, `K` skeleton, `D` debug, `H` help, `Q` quit.
