@@ -58,6 +58,9 @@ jobs:
           if [ "$code" != "200" ]; then
             echo "description update failed: HTTP $code"
             jq -r '.detail // .message // .' patch.json || cat patch.json
+            if [ "$code" = "403" ]; then
+              echo "DOCKERHUB_TOKEN needs the 'Read, Write, Delete' permission (scope repo:admin)"
+            fi
             exit 1
           fi
           jq -r '"description updated: \(.name) (\(.full_description | length) chars)"' patch.json
