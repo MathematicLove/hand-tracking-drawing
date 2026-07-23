@@ -26,6 +26,7 @@ class Gesture(str, Enum):
     ZOOM = "zoom"
     OK = "ok"
     MIDDLE = "middle"
+    PINKY = "pinky"
 
 
 LABELS: dict[Gesture, str] = {
@@ -37,6 +38,7 @@ LABELS: dict[Gesture, str] = {
     Gesture.ZOOM: "Zoom",
     Gesture.OK: "OK",
     Gesture.MIDDLE: "Middle",
+    Gesture.PINKY: "Undo",
 }
 
 _CHAINS: tuple[tuple[int, int, int, int], ...] = (
@@ -208,6 +210,9 @@ class GestureRecognizer:
 
         if middle and not index and not ring and not pinky:
             return Gesture.MIDDLE
+
+        if pinky and not index and not middle and not ring:
+            return Gesture.PINKY
 
         if fist:
             return Gesture.GRAB

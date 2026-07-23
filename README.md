@@ -24,6 +24,10 @@ those keypoints, so recognition is independent of hand size, distance, or handed
 - **Fist (hold)** - grab the drawing; move the fist to rotate it in 3D
 - **Two fists** - scale (canvas in 2D, object in 3D)
 - **Open palm** - release, back to drawing
+- **OK (hold)** - clear the canvas
+- **Pinky (hold)** - undo the last stroke
+- **Middle finger** - shows `:((` for a second
+- **Both palms waving** - say goodbye, closes the app
 
 Keys: `S` save, `C` clear, `U` undo, `1..6` color, `[` / `]` thickness,
 `SPACE` 2D/3D, `R` reset view, `K` skeleton, `D` debug, `H` help, `Q` quit.

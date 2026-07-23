@@ -27,6 +27,7 @@ _ACCENT = {
     Gesture.ZOOM: (255, 110, 200),
     Gesture.OK: (120, 120, 255),
     Gesture.MIDDLE: (80, 80, 240),
+    Gesture.PINKY: (200, 160, 255),
     Gesture.NONE: (150, 150, 150),
 }
 
@@ -38,6 +39,9 @@ HELP_LINES = (
     "  Two fists - scale",
     "  Open palm - release",
     "  OK (hold) - clear canvas",
+    "  Pinky (hold) - undo last stroke",
+    "  Middle finger - :((",
+    "  Two palms waving - quit",
     "",
     "KEYS",
     "  S save    C clear    U undo",

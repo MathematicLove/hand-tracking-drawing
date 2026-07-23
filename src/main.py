@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from collections import deque
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -23,6 +24,13 @@ from smoothing import LandmarkFilter, OneEuroFilter, ScalarEMA
 WINDOW = "Hand Tracking Drawing"
 GRAB_HOLD_SECONDS = 0.35
 OK_HOLD_SECONDS = 0.5
+PINKY_HOLD_SECONDS = 0.4
+WAVE_WINDOW_SECONDS = 1.3
+WAVE_AMPLITUDE_RATIO = 0.35
+WAVE_FLIPS = 4
+WAVE_MEMORY_SECONDS = 0.7
+WAVE_PALM_GRACE = 0.5
+BYE_SECONDS = 1.0
 STROKE_GRACE_SECONDS = 0.14
 TOAST_SECONDS = 2.2
 
@@ -44,6 +52,40 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-video-mode", dest="video_mode", action="store_false")
     p.add_argument("--debug", action="store_true")
     return p.parse_args()
+
+
+class WaveDetector:
+    """Side to side shaking detector."""
+
+    def __init__(self, window: float = WAVE_WINDOW_SECONDS, flips: int = WAVE_FLIPS) -> None:
+        self.window = window
+        self.flips = flips
+        self._dir = 0
+        self._extreme: float | None = None
+        self._times: deque[float] = deque()
+
+    def reset(self) -> None:
+        """Drop tracking state."""
+        self._dir = 0
+        self._extreme = None
+        self._times.clear()
+
+    def update(self, x: float, amplitude: float, now: float) -> bool:
+        """Feed one sample."""
+        while self._times and now - self._times[0] > self.window:
+            self._times.popleft()
+        if self._extreme is None:
+            self._extreme = x
+            return False
+        delta = x - self._extreme
+        if abs(delta) >= amplitude:
+            direction = 1 if delta > 0 else -1
+            if direction != self._dir:
+                if self._dir != 0:
+                    self._times.append(now)
+                self._dir = direction
+            self._extreme = x
+        return len(self._times) >= self.flips
 
 
 class App:
@@ -84,6 +126,12 @@ class App:
         self._ok_latched = False
         self._palm_armed = True
         self._middle_latched = False
+        self._pinky_since: float | None = None
+        self._pinky_latched = False
+        self._wave = [WaveDetector() for _ in range(args.max_hands)]
+        self._wave_until = [0.0] * args.max_hands
+        self._palm_seen = [0.0] * args.max_hands
+        self._bye_at: float | None = None
         self._draw_lost_since: float | None = None
         self._zoom_anchor: list[float] | None = None
         self.toast_text = ""
@@ -159,6 +207,24 @@ class App:
         if not self._middle_latched:
             self._middle_latched = True
             self.toast(":((", 1.0)
+
+    def handle_pinky(self, states: list) -> None:
+        """Undo on pinky gesture."""
+        shown = any(s.gesture == Gesture.PINKY and s.stable for s in states)
+        if not shown:
+            self._pinky_since = None
+            self._pinky_latched = False
+            return
+        now = time.time()
+        self._pinky_since = self._pinky_since or now
+        if not self._pinky_latched and now - self._pinky_since >= PINKY_HOLD_SECONDS:
+            self._pinky_latched = True
+            if self.canvas.strokes:
+                self.stop_stroke(force=True)
+                self.canvas.undo()
+                self.toast("Undo last stroke")
+            else:
+                self.toast("Nothing to undo")
 
     def handle_draw_mode(self, states: list, dt: float) -> None:
         """Drive drawing and grab."""
@@ -280,17 +346,44 @@ class App:
             free.remove(best)
 
         result = []
+        now = time.time()
         for i in range(n):
             hand = slots[i]
             if hand is None:
                 self._slot_centers[i] = None
                 self._kp_filters[i].reset()
                 self.recognizers[i](None)
+                self._wave[i].reset()
+                self._wave_until[i] = 0.0
+                self._palm_seen[i] = 0.0
                 continue
             hand.keypoints = self._kp_filters[i](hand.keypoints, dt)
             self._slot_centers[i] = hand.center
-            result.append((hand, self.recognizers[i](hand)))
+            state = self.recognizers[i](hand)
+            self.track_wave(i, hand, state, now)
+            result.append((hand, state))
         return result
+
+    def track_wave(self, slot: int, hand, state, now: float) -> None:
+        """Follow one waving hand."""
+        if state.gesture == Gesture.OPEN_PALM:
+            self._palm_seen[slot] = now
+        if now - self._palm_seen[slot] > WAVE_PALM_GRACE:
+            self._wave[slot].reset()
+            self._wave_until[slot] = 0.0
+            return
+        amplitude = hand.scale * WAVE_AMPLITUDE_RATIO
+        if self._wave[slot].update(float(hand.center[0]), amplitude, now):
+            self._wave_until[slot] = now + WAVE_MEMORY_SECONDS
+
+    def handle_goodbye(self) -> None:
+        """Quit on two waving hands."""
+        if self._bye_at is not None:
+            return
+        now = time.time()
+        if sum(1 for until in self._wave_until if now < until) >= 2:
+            self._bye_at = now + BYE_SECONDS
+            self.toast("Bye :)", BYE_SECONDS)
 
     @staticmethod
     def active_state(states: list):
@@ -429,6 +522,8 @@ class App:
 
             self.handle_ok(states)
             self.handle_middle(states)
+            self.handle_pinky(states)
+            self.handle_goodbye()
 
             if self.mode_3d:
                 self.handle_3d_mode(states, dt)
@@ -449,6 +544,9 @@ class App:
                 break
             if cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
                 reason = "window closed"
+                break
+            if self._bye_at is not None and time.time() >= self._bye_at:
+                reason = "goodbye wave"
                 break
 
         print(f"[i] stopped: {reason} (frames processed: {frames})", flush=True)
