@@ -9,6 +9,8 @@ Draw in the air with your hand, then view the drawing as a rotatable 3D object.
        alt="Fig.1: Example">
 </p>
 
+**[DOCKER IMAGE HERE](https://hub.docker.com/r/flugmaschine/hand-tracking-drawing)**
+
 ## Model
 
 Uses the **MediaPipe Hand Landmarker** (`models/hand_landmarker.task`), which returns
