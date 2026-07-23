@@ -38,12 +38,27 @@ jobs:
           HUB_PASS: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -euo pipefail
-          token=$(jq -n --arg u "$HUB_USER" --arg p "$HUB_PASS" '{username:$u,password:$p}' \
-            | curl -sS -f -X POST https://hub.docker.com/v2/users/login/ \
-                -H 'Content-Type: application/json' --data-binary @- \
-            | jq -r .token)
-          jq -n --rawfile d DOCKERHUB.md '{full_description:$d}' \
-            | curl -sS -f -X PATCH "https://hub.docker.com/v2/repositories/$HUB_USER/hand-tracking-drawing/" \
-                -H "Authorization: JWT $token" \
-                -H 'Content-Type: application/json' --data-binary @- \
-            | jq -r '"description updated: \(.name) (\(.full_description | length) chars)"'
+
+          code=$(jq -n --arg i "$HUB_USER" --arg s "$HUB_PASS" '{identifier:$i,secret:$s}' \
+            | curl -sS -o auth.json -w '%{http_code}' -X POST https://hub.docker.com/v2/auth/token \
+                -H 'Content-Type: application/json' --data-binary @-)
+          if [ "$code" != "200" ]; then
+            echo "auth failed: HTTP $code"
+            jq -r '.detail // .message // .' auth.json || cat auth.json
+            exit 1
+          fi
+          token=$(jq -r .access_token auth.json)
+          rm -f auth.json
+
+          code=$(jq -n --rawfile d DOCKERHUB.md '{full_description:$d}' \
+            | curl -sS -o patch.json -w '%{http_code}' \
+                -X PATCH "https://hub.docker.com/v2/repositories/$HUB_USER/hand-tracking-drawing/" \
+                -H "Authorization: Bearer $token" \
+                -H 'Content-Type: application/json' --data-binary @-)
+          if [ "$code" != "200" ]; then
+            echo "description update failed: HTTP $code"
+            jq -r '.detail // .message // .' patch.json || cat patch.json
+            exit 1
+          fi
+          jq -r '"description updated: \(.name) (\(.full_description | length) chars)"' patch.json
+          rm -f patch.json
