@@ -25,6 +25,7 @@ _ACCENT = {
     Gesture.GRAB: (60, 220, 255),
     Gesture.OPEN_PALM: (230, 230, 230),
     Gesture.ZOOM: (255, 110, 200),
+    Gesture.OK: (120, 120, 255),
     Gesture.NONE: (150, 150, 150),
 }
 
@@ -35,6 +36,7 @@ HELP_LINES = (
     "  Fist (hold) - grab, move to rotate in 3D",
     "  Two fists - scale",
     "  Open palm - release",
+    "  OK (hold) - clear canvas",
     "",
     "KEYS",
     "  S save    C clear    U undo",

@@ -24,6 +24,7 @@ class Gesture(str, Enum):
     GRAB = "grab"
     OPEN_PALM = "palm"
     ZOOM = "zoom"
+    OK = "ok"
 
 
 LABELS: dict[Gesture, str] = {
@@ -33,6 +34,7 @@ LABELS: dict[Gesture, str] = {
     Gesture.GRAB: "Grab",
     Gesture.OPEN_PALM: "Palm",
     Gesture.ZOOM: "Zoom",
+    Gesture.OK: "OK",
 }
 
 _CHAINS: tuple[tuple[int, int, int, int], ...] = (
@@ -169,7 +171,7 @@ class GestureRecognizer:
         self._pinching = pinch_d < (_PINCH_OFF if self._pinching else _PINCH_ON)
 
         raw = self._classify(tuple(self._extended), tuple(self._extendedness),
-                             tuple(curls), self._fist)
+                             tuple(curls), self._fist, self._pinching)
 
         self._history.append(raw)
         counts = Counter(self._history)
@@ -194,10 +196,13 @@ class GestureRecognizer:
 
     @staticmethod
     def _classify(ext: tuple[bool, ...], e: tuple[float, ...],
-                  curls: tuple[float, ...], fist: bool) -> Gesture:
+                  curls: tuple[float, ...], fist: bool, pinching: bool) -> Gesture:
         """Map fingers to gesture."""
         _thumb, index, middle, ring, pinky = ext
         long_up = sum((index, middle, ring, pinky))
+
+        if pinching and middle and ring and pinky and not index:
+            return Gesture.OK
 
         if fist:
             return Gesture.GRAB

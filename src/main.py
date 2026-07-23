@@ -22,6 +22,7 @@ from smoothing import LandmarkFilter, OneEuroFilter, ScalarEMA
 
 WINDOW = "Hand Tracking Drawing"
 GRAB_HOLD_SECONDS = 0.35
+OK_HOLD_SECONDS = 0.5
 STROKE_GRACE_SECONDS = 0.14
 TOAST_SECONDS = 2.2
 
@@ -79,6 +80,8 @@ class App:
         self.show_debug = args.debug
         self.show_skeleton = args.show_skeleton
         self.grab_since: float | None = None
+        self._ok_since: float | None = None
+        self._ok_latched = False
         self._draw_lost_since: float | None = None
         self._zoom_anchor: list[float] | None = None
         self.toast_text = ""
@@ -117,6 +120,32 @@ class App:
         self._grab = None
         self._grab_span = None
         self.toast("Back to drawing")
+
+    def clear_canvas(self) -> None:
+        """Wipe the board."""
+        self.stop_stroke(force=True)
+        self.canvas.clear()
+        self.object3d = None
+        self._object_rev = -1
+        self._grab = None
+        self._grab_span = None
+        self.grab_since = None
+        if self.mode_3d:
+            self.mode_3d = False
+        self.toast("Canvas cleared")
+
+    def handle_ok(self, states: list) -> None:
+        """Clear on OK gesture."""
+        ok = any(s.gesture == Gesture.OK and s.stable for s in states)
+        if not ok:
+            self._ok_since = None
+            self._ok_latched = False
+            return
+        now = time.time()
+        self._ok_since = self._ok_since or now
+        if not self._ok_latched and now - self._ok_since >= OK_HOLD_SECONDS:
+            self._ok_latched = True
+            self.clear_canvas()
 
     def handle_draw_mode(self, states: list, dt: float) -> None:
         """Drive drawing and grab."""
@@ -318,9 +347,7 @@ class App:
                     print("   ", p, flush=True)
                 self.toast(f"Saved {paths[0].name}")
         elif key == ord("c"):
-            self.canvas.clear()
-            self.object3d = None
-            self.toast("Canvas cleared")
+            self.clear_canvas()
         elif key == ord("u"):
             self.canvas.undo()
             self.toast("Undo last stroke")
@@ -381,6 +408,8 @@ class App:
             paired = self.assign_slots(detected, dt)
             hands = [h for h, _ in paired]
             states = [s for _, s in paired]
+
+            self.handle_ok(states)
 
             if self.mode_3d:
                 self.handle_3d_mode(states, dt)
