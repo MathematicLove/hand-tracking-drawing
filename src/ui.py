@@ -26,6 +26,7 @@ _ACCENT = {
     Gesture.OPEN_PALM: (230, 230, 230),
     Gesture.ZOOM: (255, 110, 200),
     Gesture.OK: (120, 120, 255),
+    Gesture.MIDDLE: (80, 80, 240),
     Gesture.NONE: (150, 150, 150),
 }
 

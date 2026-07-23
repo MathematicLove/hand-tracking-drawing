@@ -82,6 +82,8 @@ class App:
         self.grab_since: float | None = None
         self._ok_since: float | None = None
         self._ok_latched = False
+        self._palm_armed = True
+        self._middle_latched = False
         self._draw_lost_since: float | None = None
         self._zoom_anchor: list[float] | None = None
         self.toast_text = ""
@@ -90,10 +92,10 @@ class App:
         self._last_t = time.perf_counter()
         self._last_render: np.ndarray | None = None
 
-    def toast(self, text: str) -> None:
+    def toast(self, text: str, seconds: float = TOAST_SECONDS) -> None:
         """Show transient message."""
         self.toast_text = text
-        self.toast_until = time.time() + TOAST_SECONDS
+        self.toast_until = time.time() + seconds
 
     def build_object(self) -> bool:
         """Rebuild 3D object."""
@@ -111,6 +113,7 @@ class App:
         """Switch to 3D mode."""
         if self.build_object():
             self.mode_3d = True
+            self._palm_armed = False
             self.canvas.end()
             self.toast("Grabbed. Move fist to rotate")
 
@@ -146,6 +149,16 @@ class App:
         if not self._ok_latched and now - self._ok_since >= OK_HOLD_SECONDS:
             self._ok_latched = True
             self.clear_canvas()
+
+    def handle_middle(self, states: list) -> None:
+        """React to middle finger."""
+        shown = any(s.gesture == Gesture.MIDDLE and s.stable for s in states)
+        if not shown:
+            self._middle_latched = False
+            return
+        if not self._middle_latched:
+            self._middle_latched = True
+            self.toast(":((", 1.0)
 
     def handle_draw_mode(self, states: list, dt: float) -> None:
         """Drive drawing and grab."""
@@ -240,7 +253,12 @@ class App:
             self._grab_span = None
             self.yaw += 0.25 * dt
 
-        if any(s.gesture == Gesture.OPEN_PALM for s in states):
+        palm = any(s.gesture == Gesture.OPEN_PALM for s in states)
+        if not palm:
+            self._palm_armed = True
+        elif grabbing:
+            self._palm_armed = False
+        elif self._palm_armed:
             self.exit_3d()
 
     def assign_slots(self, hands, dt: float = 1 / 30) -> list:
@@ -410,6 +428,7 @@ class App:
             states = [s for _, s in paired]
 
             self.handle_ok(states)
+            self.handle_middle(states)
 
             if self.mode_3d:
                 self.handle_3d_mode(states, dt)
