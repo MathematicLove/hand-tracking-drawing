@@ -17,6 +17,7 @@ import ui
 from camera import CameraStream
 from canvas import COLOR_NAMES, Canvas
 from gestures import Gesture, GestureRecognizer
+from menu import Menu
 from mp_tracker import MediaPipeTracker
 from renderer3d import Object3D
 from smoothing import LandmarkFilter, OneEuroFilter, ScalarEMA
@@ -47,6 +48,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-hands", type=int, default=2)
     p.add_argument("--output", default=str(root / "output"))
     p.add_argument("--no-mirror", action="store_true")
+    p.add_argument("--no-menu", action="store_true")
     p.add_argument("--show-skeleton", action="store_true", default=True)
     p.add_argument("--video-mode", action="store_true", default=True)
     p.add_argument("--no-video-mode", dest="video_mode", action="store_false")
@@ -557,6 +559,9 @@ class App:
 def main() -> int:
     """Program entry point."""
     args = parse_args()
+    if not args.no_menu and Menu().run() is None:
+        print("[i] no mode selected", flush=True)
+        return 0
     try:
         App(args).run()
     except (FileNotFoundError, RuntimeError) as exc:
